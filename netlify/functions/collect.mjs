@@ -97,7 +97,9 @@ async function queryPhonePayment(checkoutRequestId) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`STK status query failed (HTTP ${res.status}).`);
   if (data.ResultCode === undefined) return { status: "pending", description: data.ResponseDescription || "Waiting for payer approval." };
-  if (String(data.ResultCode) === "0") return { status: "paid", description: data.ResultDesc || "Payment completed." };
+  const resultCode = String(data.ResultCode);
+  if (resultCode === "0") return { status: "paid", description: data.ResultDesc || "Payment completed." };
+  if (resultCode === "4999") return { status: "pending", description: data.ResultDesc || "The transaction is still under processing." };
   return { status: "failed", description: data.ResultDesc || "Payment was not completed." };
 }
 
