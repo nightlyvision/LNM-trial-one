@@ -88,9 +88,30 @@
         const response = await fetch('/.netlify/functions/collect', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
-        result.textContent = `HTTP ${response.status}\n${await response.text()}`;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Request failed with HTTP ${response.status}`);
+        if (method !== 'phone' || !data.checkoutRequestId) {
+          result.textContent = JSON.stringify(data, null, 2);
+          return;
+        }
+        result.textContent = 'Safaricom accepted the request. Waiting for payment confirmation…';
+        for (let attempt = 0; attempt < 12; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          const statusResponse = await fetch(`/.netlify/functions/collect?checkoutRequestId=${encodeURIComponent(data.checkoutRequestId)}`);
+          const status = await statusResponse.json();
+          if (status.status === 'paid') {
+            result.textContent = `Payment confirmed. ${status.description}`;
+            return;
+          }
+          if (status.status === 'failed') {
+            result.textContent = `Payment not completed. ${status.description}`;
+            return;
+          }
+          result.textContent = `Waiting for payment confirmation… (${attempt + 1}/12)`;
+        }
+        result.textContent = 'No final status yet. Check the M-Pesa prompt and try again later; do not submit another payment unless you have checked the transaction status.';
       } catch (error) {
-        result.textContent = `Could not reach your backend: ${error.message}\n\nStart your local backend and allow this page's origin in its CORS settings. Opening this HTML as a file may cause browser restrictions; serve it from a local web server.`;
+        result.textContent = `Payment request problem: ${error.message}`;
       } finally {
         submitButton.disabled = false;
       }
