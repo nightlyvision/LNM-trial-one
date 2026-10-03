@@ -27,10 +27,14 @@ function getCommonConfig() {
 
 function getConfig() {
   const config = getCommonConfig();
-  const required = ["MPESA_STK_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_URL"];
+  const required = ["MPESA_STK_SHORTCODE", "MPESA_STK_PARTY_B", "MPESA_PASSKEY", "MPESA_CALLBACK_URL"];
   const missing = required.filter((key) => !process.env[key]);
   if (missing.length) throw new Error(`Set these Netlify function environment variables: ${missing.join(", ")}`);
-  return { ...config, shortcode: process.env.MPESA_STK_SHORTCODE };
+  return {
+    ...config,
+    shortcode: process.env.MPESA_STK_SHORTCODE,
+    partyB: process.env.MPESA_STK_PARTY_B,
+  };
 }
 
 async function getAccessToken(config) {
@@ -60,7 +64,7 @@ async function startPhonePayment(payload) {
     TransactionType: process.env.MPESA_TRANSACTION_TYPE || "CustomerBuyGoodsOnline",
     Amount: fixedAmount,
     PartyA: phone,
-    PartyB: config.shortcode,
+    PartyB: config.partyB,
     PhoneNumber: phone,
     CallBackURL: process.env.MPESA_CALLBACK_URL,
     AccountReference: "PAYMENT",
