@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accept M-Pesa Payments</title>
+  <style>
+    :root { font: 16px/1.5 system-ui, Segoe UI, sans-serif; color: #17221e; background: #f3f7f4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 16px; }
+    main { max-width: 700px; margin: auto; }
+    .card { background: white; border: 1px solid #dce7df; border-radius: 16px; padding: 28px; box-shadow: 0 8px 28px #163a2510; }
+    h1 { margin: 0 0 8px; font-size: 1.7rem; }
+    p { color: #506158; }
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }
+    .option { padding: 16px; border: 1px solid #bdccc2; border-radius: 10px; color: #17442e; background: #fff; font: 650 1rem system-ui; cursor: pointer; text-align: left; }
+    .option[aria-pressed="true"] { border: 2px solid #087a45; background: #eff9f2; }
+    .option span { display: block; font-size: .88rem; font-weight: 400; color: #506158; margin-top: 4px; }
+    label { display: block; margin: 16px 0 6px; font-weight: 650; }
+    input { width: 100%; padding: 11px 12px; border: 1px solid #bdccc2; border-radius: 8px; font: inherit; }
+    input[readonly] { background: #f3f6f4; }
+    button.submit { margin-top: 20px; padding: 11px 18px; border: 0; border-radius: 8px; background: #087a45; color: white; font: 650 1rem system-ui; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .notice { padding: 12px 14px; border-radius: 10px; background: #fff6dc; color: #624d14; margin: 18px 0 22px; }
+    pre { min-height: 52px; max-height: 260px; overflow: auto; background: #14231b; color: #d8f4df; padding: 14px; border-radius: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .small { font-size: .9rem; }
+    [hidden] { display: none !important; }
+    @media (max-width: 520px) { .options { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <h1>Pay <span id="merchant-name">this business</span></h1>
+      <p>Choose how you want to pay KES 10 into the business till ending <strong>933161</strong>.</p>
+      <div class="options" role="group" aria-label="Payment method">
+        <button class="option" id="till-option" type="button" aria-pressed="true">Pay from another till<span>Enter the paying till number. The till operator approves the prompt on their device.</span></button>
+        <button class="option" id="phone-option" type="button" aria-pressed="false">Pay from a phone<span>Enter the M-Pesa phone number. The customer approves the prompt on their phone.</span></button>
+      </div>
+
+      <div class="notice"><strong>PIN safety:</strong> this page never asks for an Operator ID or M-Pesa PIN. The payer enters their PIN only on their own M-Pesa device when Safaricom presents the payment prompt.</div>
+
+      <form id="payment-form">
+        <label id="payer-label" for="payer">Paying till number</label>
+        <input id="payer" name="payer" inputmode="numeric" autocomplete="off" placeholder="Enter the paying till number" required>
+
+        <p class="small">This page sends the request to the Netlify Function in this project. The payer enters their PIN only on their own M-Pesa device.</p>
+        <button class="submit" id="submit-button" type="submit">Request payment prompt</button>
+      </form>
+      <h2 class="small">Response</h2>
+      <pre id="result" aria-live="polite">Choose a payment method and enter the payment details.</pre>
+    </section>
+  </main>
+  <script>
+    let method = 'till';
+    const tillButton = document.querySelector('#till-option');
+    const phoneButton = document.querySelector('#phone-option');
+    const payer = document.querySelector('#payer');
+    const payerLabel = document.querySelector('#payer-label');
+    const submitButton = document.querySelector('#submit-button');
+    const result = document.querySelector('#result');
+
+    function selectMethod(next) {
+      method = next;
+      const tillMode = method === 'till';
+      tillButton.setAttribute('aria-pressed', String(tillMode));
+      phoneButton.setAttribute('aria-pressed', String(!tillMode));
+      payerLabel.textContent = tillMode ? 'Paying till number' : 'Customer M-Pesa phone number';
+      payer.placeholder = tillMode ? 'Enter the paying till number' : 'e.g. 0712345678 or 254712345678';
+      payer.inputMode = tillMode ? 'numeric' : 'tel';
+      payer.autocomplete = 'off';
+      submitButton.textContent = tillMode ? 'Request till payment prompt' : 'Send M-Pesa prompt';
+    }
+    tillButton.addEventListener('click', () => selectMethod('till'));
+    phoneButton.addEventListener('click', () => selectMethod('phone'));
+
+    document.querySelector('#payment-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        method,
+        payer: payer.value.trim(),
+        amount: 10,
+        recipientTill: '933161'
+      };
+      submitButton.disabled = true;
+      result.textContent = 'Sending request to your backend…';
+      try {
+        const response = await fetch('/.netlify/functions/collect', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        result.textContent = `HTTP ${response.status}\n${await response.text()}`;
+      } catch (error) {
+        result.textContent = `Could not reach your backend: ${error.message}\n\nStart your local backend and allow this page's origin in its CORS settings. Opening this HTML as a file may cause browser restrictions; serve it from a local web server.`;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
