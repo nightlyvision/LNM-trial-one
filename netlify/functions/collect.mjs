@@ -133,7 +133,13 @@ async function startTillPayment(payload) {
     body: JSON.stringify(requestBody),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`B2B Express Checkout failed (HTTP ${res.status}): ${data.message || data.error || "Daraja returned an error."}`);
+  if (!res.ok) {
+    const detail = [data.errorMessage, data.error_description, data.message, data.error, data.ResponseDescription, data.errorCode]
+      .filter(Boolean)
+      .join(" — ")
+      .slice(0, 400);
+    throw new Error(`B2B Express Checkout failed (HTTP ${res.status}): ${detail || "Daraja returned an error."}`);
+  }
   return data;
 }
 
